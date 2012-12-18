@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="bench.js"></script>
+<script>
+    window.onload = function(){
+        var bench = new window.Bench();
+        
+        bench.addTest(function(){
+            var nothing = "hello";
+            var nothingElse = "world";
+            var number = 0;
+            
+            while(number < 10000){
+                number++;
+                window.majigger = nothing + ' ' + nothingElse + document.getElementsByTagName('body')[0].innerHTML;
+            }
+            return 12;
+        },'Totaly Pointless', true);
+        
+        bench.run();
+        
+        console.log(bench);
+    }
+</script>
+</head>
+<body>
+    Test page.
+</body>
+</html>
