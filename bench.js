@@ -66,20 +66,25 @@
         
         var startTime = new Date(),
             endTime,
-            output;
+            output,
+            microLoops = 0;
             
-        if(test.testColdStartTime){
-            output = (new Function(undefined, '(' + test.test.toString() + ')()'))();
-        }else{
-            output = test.test();
-        }
+        // If the test runs in less than 1ms, run it a few more times to get a better 'real' time.
+        do{
+            microLoops++;
+            if(test.testColdStartTime){
+                output = (new Function(undefined, '(' + test.test.toString() + ')()'))();
+            }else{
+                output = test.test();            
+            }
+        }while(new Date() - startTime < 1)
         
         endTime = new Date();
         
         return {
             startTime: startTime,
             endTime: endTime,
-            time: endTime - startTime,
+            time: (endTime - startTime) / microLoops,
             output: output
         }
     }
