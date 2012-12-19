@@ -1,3 +1,11 @@
+//Copyright (C) 2012 Kory Nunn
+
+//Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+//The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 (function(undefined){
 
     function fastEach(items, callback) {
@@ -11,7 +19,11 @@
     function sum(items, retrieveFunction){
         var total = 0;
         fastEach(items, function(){
-            total += retrieveFunction.call(this, this);
+            if(retrieveFunction){
+                total += retrieveFunction.call(this, this);
+            }else{
+                total += this;
+            }
         });
         return total;
     }
@@ -20,16 +32,9 @@
         return sum(items, retrieveFunction) / items.length;
     }
     
-    function distance(a, b){
-        var max = Math.max(a, b),
-            min = Math.min(a, b);
-                
-        return max - min;
-    }
-    
     function calculateResults(test){
-    
-        var nonOutliers = [],
+        var bench = this,
+            inliers = [],
             totalTimeOfAcceptedResults = 0;
         
         test.totalAverageTestTime = average(test.results, function(result){
@@ -37,27 +42,40 @@
         });
         
         fastEach(test.results, function(){
-            this.variance = distance(test.totalAverageTestTime, this.time)
+            this.variance = Math.pow(test.totalAverageTestTime - this.time, 2)
         });
         
-        test.standardDeviation = Math.sqrt(average(test.results, function(){
-            return Math.pow(this.time - test.totalAverageTestTime, 2);
-        }));
+        test.standardDeviation = Math.sqrt(
+            sum(test.results, function(){
+                return this.variance;
+            })
+            /
+            (test.results.length - 1) /* I still dont trust this minus 1 stuff... */ 
+        );
               
         fastEach(test.results, function(){
-            if(this.variance < test.standardDeviation && this.variance > -test.standardDeviation){
+            this.zScore = (this.time - test.totalAverageTestTime) / test.standardDeviation;
+            
+            
+            
+            if(Math.abs(this.zScore) < bench.tolerableDeviations){
                 this.outlier = false;
-                nonOutliers.push(this);
+                inliers.push(this);
                 return;
             }
             this.outlier = true;
         });
         
-        fastEach(nonOutliers, function(){
+        fastEach(inliers, function(){
             totalTimeOfAcceptedResults += this.time;
         });
         
-        test.result = totalTimeOfAcceptedResults / nonOutliers.length;
+        test.numberOfOutliers = test.results.length - inliers.length;
+        test.numberOfInliers = inliers.length;
+        
+        test.result = average(inliers, function(){
+            return this.time;
+        });
     }
     
     function runTest(test){        
@@ -108,6 +126,7 @@
         this.tests = [];
     }
     Bench.prototype.constructor = Bench;
+    Bench.prototype.tolerableDeviations = 2; // Default to 95th percentile.
     Bench.prototype.addTest = function(test, name){
         this.tests.push({
             name: name,
@@ -122,10 +141,11 @@
         });
     };
     Bench.prototype.run = function(){
+        var bench = this;
         fastEach(this.tests, function(){
             resetTest(this);
             runTestLoop(this);        
-            calculateResults(this);
+            calculateResults.call(bench, this);
         });
         
         return this;
