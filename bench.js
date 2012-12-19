@@ -60,24 +60,19 @@
         test.result = totalTimeOfAcceptedResults / nonOutliers.length;
     }
     
-    function runTest(test){
-        //burn off a test (gets JS engines warm)
-        test.test();
-        
-        var startTime = new Date(),
+    function runTest(test){        
+        var testFunction = test.testColdStartTime ? new Function(undefined, '(' + test.test.toString() + ')()') : test.test,
+            startTime = new Date(),
             endTime,
             output,
             microLoops = 0;
             
-        // If the test runs in less than 1ms, run it a few more times to get a better 'real' time.
+        // Because new Date() returns with a precision of 1ms,
+        // run the test for at least 100ms and take an average.
         do{
             microLoops++;
-            if(test.testColdStartTime){
-                output = (new Function(undefined, '(' + test.test.toString() + ')()'))();
-            }else{
-                output = test.test();            
-            }
-        }while(new Date() - startTime < 1)
+            output = testFunction();
+        }while(new Date() - startTime < 100)
         
         endTime = new Date();
         
@@ -90,20 +85,29 @@
     }
 
     function runTestLoop(test){
-        test.results[0] = runTest(test);
+        var loops = 0,
+            startTime = new Date();
+            
+        //burn off a test (gets JS engines warm)
+        test.test();
         
-        var loops = 1000 / (test.results[0].time || 1),
-            i = 0;
-        
-        while(i++ < loops){
+        // Loop for at least 1 second.
+        do{
+            loops++;
             test.results.push(runTest(test));
-        }
+        }while(new Date() - startTime < 1000)
+        
         test.loops = loops;
     }
+    
+    function resetTest(test){
+        test.results = [];
+    }
 
-    function Bench(){}
+    function Bench(){
+        this.tests = [];
+    }
     Bench.prototype.constructor = Bench;
-    Bench.prototype.tests = [];
     Bench.prototype.addTest = function(test, name){
         this.tests.push({
             name: name,
@@ -118,15 +122,13 @@
         });
     };
     Bench.prototype.run = function(){
-        var results = [];
-        
         fastEach(this.tests, function(){
+            resetTest(this);
             runTestLoop(this);        
             calculateResults(this);
-            console.log(this.name, this);
-            console.log("RESULT: " + this.result);
-            console.log('----------------------------');
         });
+        
+        return this;
     };
     
     window.Bench = Bench;

@@ -20,6 +20,16 @@
         
         bench.run();
         
+        var body = document.getElementsByTagName('body')[0];
+        
+        for(var i = 0; i < bench.tests.length; i++){
+            var test = bench.tests[i]
+            body.innerHTML += "<br>";
+            body.innerHTML += test.name;
+            body.innerHTML += " runtime: ";
+            body.innerHTML += test.result;
+            body.innerHTML += "ms";
+        }
         console.log(bench);
     }
 </script>
